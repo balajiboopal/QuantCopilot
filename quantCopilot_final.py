@@ -17,11 +17,34 @@ from databricks import sql
 from databricks.sdk.core import Config
 
 # ============================================
-# 0. Databricks connection helpers (CLI-based)
+# 0. Databricks connection helpers
 # ============================================
 
-# This reads ~/.databrickscfg (configured via `databricks configure --aad`)
-cfg = Config()  # Uses Databricks CLI / environment / profile
+@st.cache_resource
+def get_cfg():
+    """
+    Get a Databricks Config object.
+
+    Priority:
+    1. Local/CLI config (works on your laptop where you've run `databricks configure`)
+    2. Streamlit secrets (for Streamlit Cloud deployment)
+    """
+    try:
+        # Local dev: use ~/.databrickscfg / env vars / AAD etc.
+        return Config()
+    except Exception as e:
+        # Streamlit Cloud: fall back to secrets
+        host = st.secrets.get("DATABRICKS_HOST")
+        token = st.secrets.get("DATABRICKS_TOKEN")
+
+        if not host or not token:
+            raise ValueError(
+                "Could not configure Databricks. Either:\n"
+                "- configure the Databricks CLI locally (for local runs), or\n"
+                "- set DATABRICKS_HOST and DATABRICKS_TOKEN in Streamlit secrets (for cloud)."
+            ) from e
+
+        return Config(host=host, token=token)
 
 
 @st.cache_resource
@@ -30,12 +53,10 @@ def get_connection(http_path: str):
     Create and cache a Databricks SQL connection.
 
     Authentication:
-    - Uses Databricks CLI / ~/.databrickscfg via databricks-sdk Config().
-    - Make sure you've run `databricks configure --aad` and can call `databricks workspace ls`.
-
-    Arguments:
-    - http_path: e.g. "/sql/1.0/warehouses/xxxxxx"
+    - Uses Databricks CLI / ~/.databrickscfg via databricks-sdk Config(), OR
+    - DATABRICKS_HOST / DATABRICKS_TOKEN from st.secrets on Streamlit Cloud.
     """
+    cfg = get_cfg()
 
     server_hostname = cfg.host.replace("https://", "").replace("http://", "")
 
@@ -44,6 +65,7 @@ def get_connection(http_path: str):
         http_path=http_path,
         credentials_provider=lambda: cfg.authenticate,
     )
+
 
 
 def query_to_pandas(conn, sql_text: str) -> pd.DataFrame:
