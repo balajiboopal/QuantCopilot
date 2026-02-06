@@ -68,5 +68,6 @@ A lightweight portfolio analytics sandbox built directly into the app.
 
 Whatever the LLM writes can be exported as a clean, readable **PDF memo**.  
 Perfect for sharing with teammates or dropping into presentations.
+Accessible to all types of people: Structured for readability, the output is clear for beginners, yet detailed enough for expert analysis. 
 
 ---
